@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>AI Learning Assistant</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      width: 280px;
+      padding: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header" style="margin-bottom: 12px; padding-bottom: 8px;">
+    <div class="brand-title">AI Learning Assistant</div>
+    <span class="mono" id="popup-time" style="font-size: 13px; color: var(--accent);">--:--</span>
+  </div>
+
+  <div class="card" style="padding: 10px; margin-bottom: 12px;">
+    <div style="font-size: 11px; color: var(--muted); margin-bottom: 4px;">CURRENT TAB</div>
+    <div id="popup-video-status" style="font-size: 13px; font-weight: 500;">Scanning active page...</div>
+  </div>
+
+  <button class="btn primary" id="open-sidepanel-btn" style="width: 100%; margin-bottom: 8px;">
+    Open Side Panel
+  </button>
+
+  <button class="btn" id="open-studio-btn" style="width: 100%;">
+    Open Web Learning Studio
+  </button>
+
+  <script src="popup.js"></script>
+</body>
+</html>

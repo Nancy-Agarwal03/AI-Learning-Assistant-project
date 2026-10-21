@@ -1,0 +1,6 @@
+{
+  "name": "AI Learning & Avatar Interviewer Studio",
+  "description": "Unified AI Learning & Career Suite featuring real-time 3D AI companion, Chrome study extension simulator, interactive course hub, and live AI avatar mock interviewer.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

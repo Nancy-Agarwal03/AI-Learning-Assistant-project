@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Learning Assistant Side Panel</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Header Bar -->
+  <header class="header">
+    <div>
+      <div class="brand-title">AI Learning Assistant</div>
+      <div class="video-status-badge">
+        <span class="video-status-dot" id="video-dot"></span>
+        <span id="video-status-text">Scanning for video...</span>
+      </div>
+    </div>
+    <div class="mono" id="current-timestamp-display" style="font-size: 15px; font-weight: 500; color: var(--accent);">00:00</div>
+  </header>
+
+  <!-- Video Context & Source Control Card -->
+  <div class="card" id="video-control-card" style="padding: 10px 12px; margin-bottom: 10px;">
+    <div class="meta-row" style="margin-bottom: 4px;">
+      <span id="active-video-title" style="font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px;">No video detected</span>
+      <span class="mono" id="active-video-time">--:--</span>
+    </div>
+
+    <!-- Multiple Videos Picker (shown if > 1 video detected) -->
+    <div id="video-selector-row" class="hidden" style="margin-bottom: 6px;">
+      <label for="video-select-dropdown" style="font-size: 11px; color: var(--muted); display: block; margin-bottom: 2px;">Multiple videos found. Pick active:</label>
+      <select id="video-select-dropdown" class="select" style="width: 100%;">
+        <option value="0">Video 1 (Primary)</option>
+      </select>
+    </div>
+
+    <!-- Transcript Source Indicator -->
+    <div style="font-size: 11px; padding: 6px 8px; background: #0E0F12; border-radius: 6px; border: 1px solid var(--border); margin-top: 6px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="color: var(--muted);">Active Transcript:</span>
+        <span id="active-transcript-source-label" class="mono" style="color: var(--accent); font-weight: 500;">Scanning...</span>
+      </div>
+      <div id="transcript-source-detail" style="font-size: 11px; color: var(--muted); margin-top: 4px;">
+        Checking captions on the page...
+      </div>
+      <div id="transcript-action-buttons" style="display: flex; gap: 6px; margin-top: 6px;" class="hidden">
+        <label class="btn" style="padding: 2px 6px; font-size: 10px; cursor: pointer;">
+          Upload Subtitles (.vtt, .srt)
+          <input type="file" id="subtitles-upload-input" accept=".vtt,.srt" style="display: none;">
+        </label>
+        <button type="button" class="btn" id="btn-request-stt" style="padding: 2px 6px; font-size: 10px;">
+          Generate Transcript (Audio)
+        </button>
+      </div>
+      <!-- Tab Audio Progress Bar -->
+      <div id="stt-progress-container" class="hidden" style="margin-top: 6px;">
+        <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--muted);">
+          <span id="stt-status-text">Recording tab audio...</span>
+          <span id="stt-progress-percent">0%</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="stt-progress-bar" style="width: 0%;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom / Top Navigation Tabs -->
+  <nav class="tabs" role="tablist">
+    <button class="tab-btn active" id="tab-btn-chat" data-target="panel-chat" role="tab" aria-selected="true">Ask</button>
+    <button class="tab-btn" id="tab-btn-moments" data-target="panel-moments" role="tab" aria-selected="false">Moments</button>
+    <button class="tab-btn" id="tab-btn-notes" data-target="panel-notes" role="tab" aria-selected="false">Notes</button>
+    <button class="tab-btn" id="tab-btn-materials" data-target="panel-materials" role="tab" aria-selected="false">Materials</button>
+    <button class="tab-btn" id="tab-btn-practice" data-target="panel-practice" role="tab" aria-selected="false">Practice</button>
+    <button class="tab-btn" id="tab-btn-progress" data-target="panel-progress" role="tab" aria-selected="false">Progress</button>
+    <button class="tab-btn" id="tab-btn-settings" data-target="panel-settings" role="tab" aria-selected="false">Settings</button>
+  </nav>
+
+  <!-- Error / Offline Banner -->
+  <div id="global-error-banner" class="alert-banner alert-error hidden">
+    <span id="global-error-text">Network error occurred.</span>
+    <button type="button" class="btn" id="global-error-retry-btn" style="padding: 2px 6px; font-size: 10px;">Retry</button>
+  </div>
+
+  <!-- Panel: Chat Screen -->
+  <main id="panel-chat" class="panel-section">
+    <!-- Active Check-In Card (Appears in side panel, not full-page video overlay) -->
+    <div id="active-checkin-container" class="checkin-card hidden" role="region" aria-label="Topic Boundary Check-In">
+      <div class="checkin-header">
+        <span class="checkin-badge">⏸️ Check-In: <span id="checkin-topic-badge">Topic</span></span>
+        <span class="mono" id="checkin-time-display" style="color: var(--accent); font-weight: 500;">12:45</span>
+      </div>
+      <div id="checkin-prompt-text" class="checkin-prompt">
+        If the training loss is oscillating wildly, should alpha be increased or decreased?
+      </div>
+      <div id="checkin-timeline-restriction" style="font-size: 10px; color: var(--muted); margin-bottom: 6px;">
+        Grounded strictly up to current timestamp (No future spoilers).
+      </div>
+      <textarea id="checkin-answer-input" class="textarea" placeholder="Answer in a few words..." rows="2" style="font-size: 12px; margin-bottom: 6px;"></textarea>
+      
+      <!-- Feedback box inside check-in -->
+      <div id="checkin-feedback-box" class="hidden" style="padding: 8px; background: #0E0F12; border-radius: 6px; border: 1px solid var(--border); margin-bottom: 8px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+          <span id="checkin-feedback-status" class="checklist-badge-pass">✓ Correct</span>
+          <span class="mono" id="checkin-time-spent" style="font-size: 10px; color: var(--muted);">14s spent</span>
+        </div>
+        <div id="checkin-feedback-detail" style="font-size: 11.5px; color: var(--text);"></div>
+      </div>
+
+      <div class="checkin-actions">
+        <div style="display: flex; gap: 6px;">
+          <button type="button" class="btn primary" id="checkin-submit-btn" style="padding: 4px 10px; font-size: 11px;">Submit Answer</button>
+          <button type="button" class="btn" id="checkin-skip-btn" style="padding: 4px 8px; font-size: 11px;">Skip</button>
+          <button type="button" class="btn primary hidden" id="checkin-resume-btn" style="padding: 4px 10px; font-size: 11px;">Resume Video ▶</button>
+          <button type="button" class="btn hidden" id="checkin-retry-btn" style="padding: 4px 8px; font-size: 11px;">Retry</button>
+        </div>
+        <button type="button" id="checkin-turnoff-btn" style="background: none; border: none; font-size: 10px; color: var(--muted); cursor: pointer; text-decoration: underline;">
+          Turn check-ins off
+        </button>
+      </div>
+    </div>
+
+    <!-- Messages Scroll List -->
+    <div class="messages-list" id="chat-messages" aria-live="polite">
+      <div class="message-item assistant">
+        <div class="meta-row">
+          <span>Learning Companion</span>
+          <span class="mono">Ready</span>
+        </div>
+        <div>
+          Welcome! I am your video learning companion. As you watch lectures, pause whenever a concept is confusing or ask about any moment. I will explain step by step using your exact video timestamp and uploaded materials.
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Action Chips -->
+    <div class="quick-chips-row">
+      <button type="button" class="quick-chip" id="chip-pause-ask" title="Pause video and attach last 60s of transcript (Alt+P)">
+        ⏸️ Pause & ask <span class="kbd-shortcut">Alt+P</span>
+      </button>
+      <button type="button" class="quick-chip" id="chip-explain-this-part" title="One-click plain English explanation of the last 30 to 90 seconds">
+        💡 Explain this part
+      </button>
+      <button type="button" class="quick-chip" id="chip-view-moments" title="View topic outline with timestamps for watched video">
+        🗺️ Key moments
+      </button>
+      <button type="button" class="quick-chip" id="chip-style-shorter">
+        ⚡ Shorter
+      </button>
+      <button type="button" class="quick-chip" id="chip-style-simpler">
+        💡 Simpler
+      </button>
+      <button type="button" class="quick-chip" id="chip-explain-code">
+        💻 Explain code
+      </button>
+      <button type="button" class="quick-chip" id="chip-explain-file">Explain this file</button>
+      <button type="button" class="quick-chip" id="chip-find-code-bugs">Find bugs</button>
+      <button type="button" class="quick-chip" id="chip-add-code-comments">Add comments</button>
+      <button type="button" class="quick-chip" id="chip-quiz-code">Code quiz</button>
+    </div>
+
+    <!-- Question Form & Auto-Attached Moment Chip -->
+    <form id="chat-form">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+        <span style="font-size: 11px; color: var(--muted); font-weight: 500;">Ask about this moment:</span>
+        <span class="mono" id="auto-attached-moment-chip" style="font-size: 11px; padding: 2px 6px; background: #0E0F12; border: 1px solid var(--border); border-radius: 4px; color: var(--accent);">
+          Video, 00:00 (last 60s)
+        </span>
+      </div>
+      <textarea id="question-input" class="textarea" placeholder="Ask a question about this part of the video... (or press Alt+P to pause & ask)" rows="3"></textarea>
+      <div style="display:flex;gap:6px;margin-top:6px;"><input id="answer-course-filter" class="input" placeholder="Filter course" style="flex:1"><input id="answer-week-filter" class="input" placeholder="Filter week" style="flex:1"></div>
+      <div id="source-filter-row" class="quick-chips-row" aria-label="Limit answer sources" style="margin-top: 7px; margin-bottom: 0;">
+        <button type="button" class="quick-chip active" data-source-filter="All">All</button>
+        <button type="button" class="quick-chip" data-source-filter="Video">Video</button>
+        <button type="button" class="quick-chip" data-source-filter="PDF">PDF</button>
+        <button type="button" class="quick-chip" data-source-filter="Slides">Slides</button>
+        <button type="button" class="quick-chip" data-source-filter="Code">Code</button>
+        <button type="button" class="quick-chip" data-source-filter="Notes">Notes</button>
+        <button type="button" class="quick-chip" data-source-filter="Web">Web</button>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+        <span style="font-size: 11px; color: var(--muted);" id="composer-char-status">Grounded in watched timeline</span>
+        <button type="submit" class="btn primary" id="send-btn">Ask Question</button>
+      </div>
+    </form>
+  </main>
+
+  <!-- Panel: Key Moments Screen -->
+  <section id="panel-moments" class="panel-section hidden">
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <h3 style="margin: 0; font-size: 13px; font-weight: 600;">Key Moments Outline</h3>
+        <span class="mono" id="moments-count-badge" style="color: var(--accent); font-size: 11px;">0 watched</span>
+      </div>
+      <p style="margin: 0 0 10px; font-size: 11px; color: var(--muted);">
+        Interactive topic outline for the transcript so far. Click any moment to jump the video directly to that timestamp.
+      </p>
+      <div id="moments-list-container" style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="color: var(--muted); font-size: 12px;">Loading outline...</div>
+      </div>
+      <div id="moments-locked-notice" style="font-size: 10px; color: var(--muted); margin-top: 10px; border-top: 1px solid var(--border); padding-top: 6px;">
+        🔒 Topics unlock as you watch (spoilers hidden unless allowed in Settings).
+      </div>
+    </div>
+  </section>
+
+  <!-- Panel: Notes Screen -->
+  <section id="panel-notes" class="panel-section hidden">
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <div>
+          <h3 style="margin: 0; font-size: 13px; font-weight: 600;">Saved Notes</h3>
+          <p style="margin: 0; font-size: 11px; color: var(--muted);">Answers, explanations, and check-ins saved with video timestamps and citations.</p>
+        </div>
+        <span class="mono" id="notes-count-badge" style="font-size: 11px; color: var(--accent);">0 notes</span>
+      </div>
+
+      <div id="notes-list-container" style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+        <div style="color: var(--muted); font-size: 12px;">No saved notes yet. Click "Save Note" on any companion explanation or check-in to save it here.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Panel: Materials Screen -->
+  <section id="panel-materials" class="panel-section hidden">
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <div>
+          <h3 style="margin: 0; font-size: 13px; font-weight: 600;">Uploaded Materials</h3>
+          <p style="margin: 0; font-size: 11px; color: var(--muted);">PDFs, slides, code files, and subtitles</p>
+        </div>
+        <label class="btn primary" style="padding: 4px 8px; font-size: 11px; cursor: pointer;">
+          + Upload File
+          <input type="file" id="material-file-input" multiple accept=".pdf,.pptx,.ppt,.docx,.txt,.md,.rtf,.py,.js,.ts,.jsx,.tsx,.java,.c,.cpp,.h,.hpp,.cs,.go,.rs,.rb,.php,.sql,.html,.css,.json,.ipynb,.csv,.xlsx,.zip,.vtt,.srt" style="display: none;">
+        </label>
+      </div>
+      <div style="display:flex; gap:6px; margin: 8px 0;">
+        <label class="btn" style="cursor:pointer;">+ Add Folder<input type="file" id="material-folder-input" webkitdirectory multiple style="display:none"></label>
+        <button type="button" class="btn" id="use-tab-pdf-btn">Use this tab's PDF</button>
+        <button type="button" class="btn danger" id="clear-materials-btn">Clear all materials</button>
+      </div>
+      <div id="materials-storage-meter" style="font-size:10px;color:var(--muted);margin:4px 0 8px;">Indexed materials: 0 KB</div>
+      <div id="material-progress-wrap" class="hidden" style="margin: 6px 0;">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);"><span id="material-progress-label">Reading materials...</span><span id="material-progress-count">0%</span></div>
+        <div class="progress-track"><div class="progress-fill" id="material-progress-bar" style="width:0%"></div></div>
+        <button type="button" class="btn danger hidden" id="cancel-ocr-btn" style="padding:2px 6px;font-size:10px;">Cancel OCR</button>
+      </div>
+      <div id="material-status-list" style="display:flex;flex-direction:column;gap:4px;margin:6px 0;"></div>
+      <div style="border-top:1px solid var(--border); padding-top:8px; margin:8px 0;">
+        <label style="font-size:11px;color:var(--muted);">Add a web URL or public Google Docs/Slides/Sheets link</label>
+        <div style="display:flex;gap:6px;margin-top:4px;"><input id="resource-url-input" class="input" type="url" placeholder="https://..." style="flex:1"><button type="button" id="resource-url-add" class="btn">Add URL</button></div>
+        <label style="font-size:11px;color:var(--muted);display:block;margin-top:8px;">Course / week tags (optional)</label>
+        <div style="display:flex;gap:6px;margin-top:4px;"><input id="resource-course-input" class="input" placeholder="Course" style="flex:1"><input id="resource-week-input" class="input" placeholder="Week" style="flex:1"></div>
+        <input id="resource-note-title" class="input" placeholder="Note title" style="margin-top:8px">
+        <textarea id="resource-note-body" class="textarea" rows="3" placeholder="Paste notes or Markdown here" style="margin-top:5px"></textarea>
+        <button type="button" id="resource-note-add" class="btn" style="margin-top:5px">Save searchable note</button>
+      </div>
+
+      <!-- Toggle: Include in answers -->
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #0E0F12; border-radius: 6px; border: 1px solid var(--border); margin-bottom: 10px;">
+        <span style="font-size: 12px; font-weight: 500;">Include in answers</span>
+        <input type="checkbox" id="toggle-include-materials" checked style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent);">
+      </div>
+
+      <!-- Materials List -->
+      <div id="materials-list-container" style="display: flex; flex-direction: column; gap: 6px;">
+        <div style="color: var(--muted); font-size: 12px;">No documents uploaded yet. Upload a PDF, slide deck, or code file to ground answers.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Panel: Practice Screen -->
+  <section id="panel-practice" class="panel-section hidden">
+    <div id="practice-setup-card" class="card">
+      <h3 style="margin: 0 0 6px; font-size: 13px; font-weight: 600;">Practice & Assessment</h3>
+      <p style="margin: 0 0 10px; font-size: 11px; color: var(--muted);">
+        Adaptive questions built from the moments you paused to study.
+      </p>
+
+      <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
+        <div>
+          <label style="font-size: 11px; color: var(--muted); display: block; margin-bottom: 2px;">Topic Focus:</label>
+          <input type="text" id="practice-topic-input" class="input" value="Gradient descent & optimization">
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <div style="flex: 1;">
+            <label style="font-size: 11px; color: var(--muted); display: block; margin-bottom: 2px;">Difficulty:</label>
+            <select id="practice-diff-select" class="select" style="width: 100%;">
+              <option value="introductory">Introductory</option>
+              <option value="intermediate" selected>Intermediate</option>
+              <option value="advanced">Advanced</option>
+            </select>
+          </div>
+          <div style="width: 80px;">
+            <label style="font-size: 11px; color: var(--muted); display: block; margin-bottom: 2px;">Count:</label>
+            <select id="practice-count-select" class="select" style="width: 100%;">
+              <option value="3" selected>3</option>
+              <option value="5">5</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <button type="button" class="btn primary" id="btn-start-practice" style="width: 100%;">
+        Start Diagnostic Practice
+      </button>
+    </div>
+
+    <!-- Active Question Card -->
+    <div id="practice-active-card" class="card hidden">
+      <div class="meta-row">
+        <span id="practice-question-counter" class="mono">Question 1 of 3</span>
+        <span id="practice-question-topic" class="mono" style="color: var(--accent);">Topic</span>
+      </div>
+      <div id="practice-question-text" style="font-size: 13px; font-weight: 500; margin-bottom: 10px;"></div>
+      <textarea id="practice-answer-input" class="textarea" placeholder="Explain in your own words..." rows="3"></textarea>
+
+      <!-- Feedback Area -->
+      <div id="practice-feedback-box" class="hidden" style="margin-top: 10px; padding: 10px; background: #0E0F12; border-radius: 6px; border: 1px solid var(--border);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+          <span id="practice-feedback-badge" class="status-badge badge-green">Green (Sound)</span>
+          <span class="mono" id="practice-feedback-time" style="font-size: 10px; color: var(--muted);"></span>
+        </div>
+        <div id="practice-feedback-reason" style="font-size: 12px; color: var(--text);"></div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px;">
+        <button type="button" class="btn primary" id="btn-submit-practice-answer">Submit Answer</button>
+        <button type="button" class="btn primary hidden" id="btn-next-practice-question">Next Question →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Panel: Progress Screen -->
+  <section id="panel-progress" class="panel-section hidden">
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <h3 style="margin: 0; font-size: 13px; font-weight: 600;">Diagnostic Progress Report</h3>
+        <span class="mono" id="progress-score-badge" style="color: var(--accent); font-weight: 600;">88% Mastery</span>
+      </div>
+      <div id="progress-summary-text" style="font-size: 12px; color: var(--muted); margin-bottom: 12px;">
+        Summary of concept retention, revision timestamps, and recommended study actions.
+      </div>
+
+      <!-- Topics Table -->
+      <div id="progress-topics-table" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px;"></div>
+
+      <!-- Priority Study Plan -->
+      <div style="padding: 10px; background: #0E0F12; border-radius: 8px; border: 1px solid var(--border);">
+        <h4 style="margin: 0 0 6px; font-size: 12px; font-weight: 600; color: var(--text);">Recommended Study Plan</h4>
+        <div id="progress-study-plan-list" style="font-size: 11px; color: var(--muted); display: flex; flex-direction: column; gap: 4px;">
+          <div>• Rewatch 18:20 to 21:05: Learning rate step size and divergence.</div>
+          <div>• Review Deep Learning Ch2 (p.9): Overfitting vs underfitting variance.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Panel: Settings Screen -->
+  <section id="panel-settings" class="panel-section hidden">
+    <div class="card">
+      <h3 style="margin: 0 0 10px; font-size: 13px; font-weight: 600;">Extension & Learning Settings</h3>
+
+      <!-- Check-in settings -->
+      <div style="padding: 8px 0; border-bottom: 1px solid var(--border);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px;">
+          <div>
+            <div style="font-size: 12px; font-weight: 500;">Interactive Check-Ins</div>
+            <div style="font-size: 10px; color: var(--muted);">Auto-pause at natural topic boundaries to test comprehension in the side panel.</div>
+          </div>
+          <input type="checkbox" id="toggle-checkins-enabled" checked style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent);">
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px;">
+          <label for="select-checkin-frequency" style="color: var(--muted);">Check-in frequency (N per 10 min):</label>
+          <select id="select-checkin-frequency" class="select" style="padding: 2px 6px; font-size: 11px;">
+            <option value="1">1 / 10m (~every 10m)</option>
+            <option value="2">2 / 10m (~every 5m)</option>
+            <option value="3" selected>3 / 10m (~every 3.3m - default)</option>
+            <option value="4">4 / 10m (~every 2.5m)</option>
+            <option value="5">5 / 10m (~every 2m)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Allow future content toggle -->
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border);">
+        <div>
+          <div style="font-size: 12px; font-weight: 500;">Allow answers to use future video content</div>
+          <div style="font-size: 10px; color: var(--muted);">When off, strictly restricts answers to video moments you have watched so far.</div>
+        </div>
+        <input type="checkbox" id="toggle-allow-future-content" style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent);">
+      </div>
+
+      <!-- Reduced motion toggle -->
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border);">
+        <span style="font-size: 12px; font-weight: 500;">Animations (Smooth 3D transitions)</span>
+        <input type="checkbox" id="toggle-animations" checked style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent);">
+      </div>
+
+      <!-- Backend API URL -->
+      <div style="padding: 10px 0; border-bottom: 1px solid var(--border);">
+        <label for="backend-url-input" style="display: block; font-size: 11px; color: var(--muted); margin-bottom: 4px;">
+          Backend API Base URL:
+        </label>
+        <div style="display: flex; gap: 6px;">
+          <input type="text" id="backend-url-input" class="input" placeholder="http://localhost:3000" style="flex: 1;">
+          <button type="button" class="btn" id="save-backend-url-btn">Save</button>
+          <button type="button" class="btn primary" id="test-connection-btn">Test connection</button>
+        </div>
+        <div id="connection-status-box" style="margin-top: 8px; display: none; padding: 8px 10px; border-radius: 6px; font-size: 11px; line-height: 1.4;">
+          <div style="display: flex; align-items: center; gap: 6px; font-weight: 600;" id="connection-status-title">
+            <span id="connection-status-badge"></span>
+            <span id="connection-status-header"></span>
+          </div>
+          <div id="connection-status-explanation" style="margin-top: 4px; color: var(--muted);"></div>
+        </div>
+      </div>
+
+      <!-- Phase 4 Test Checklist Runner -->
+      <div style="padding: 10px 0; border-bottom: 1px solid var(--border);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <div>
+            <div style="font-size: 12px; font-weight: 600;">Phase 4 Test Checklist</div>
+            <div style="font-size: 10px; color: var(--muted);">Verify auto-pause, skip, future content filter, and database logging.</div>
+          </div>
+          <button type="button" class="btn primary" id="btn-run-test-checklist" style="padding: 3px 8px; font-size: 11px;">
+            Run Tests
+          </button>
+        </div>
+
+        <div id="test-checklist-container" style="display: flex; flex-direction: column; gap: 6px; margin-top: 8px;">
+          <div class="checklist-item">
+            <span class="checklist-badge-pass" id="badge-test-pause">✓</span>
+            <div>
+              <div style="font-weight: 500;">Auto-pause and resume</div>
+              <div style="font-size: 10px; color: var(--muted);">Video pauses at boundary and resumes on answer/skip</div>
+            </div>
+          </div>
+          <div class="checklist-item">
+            <span class="checklist-badge-pass" id="badge-test-skip">✓</span>
+            <div>
+              <div style="font-weight: 500;">Skip without penalty</div>
+              <div style="font-size: 10px; color: var(--muted);">Learner can skip question cleanly; video resumes immediately</div>
+            </div>
+          </div>
+          <div class="checklist-item">
+            <span class="checklist-badge-pass" id="badge-test-filter">✓</span>
+            <div>
+              <div style="font-weight: 500;">No content later than current time</div>
+              <div style="font-size: 10px; color: var(--muted);">Grounded only in watched timeline (spoilers hard-filtered)</div>
+            </div>
+          </div>
+          <div class="checklist-item">
+            <span class="checklist-badge-pass" id="badge-test-db">✓</span>
+            <div>
+              <div style="font-weight: 500;">Logs reach database</div>
+              <div style="font-size: 10px; color: var(--muted);">Question, topic, video time, retries, time spent stored in DB</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Privacy & Account Actions -->
+      <div style="padding-top: 10px; display: flex; flex-direction: column; gap: 8px;">
+        <button type="button" class="btn" id="btn-export-data">
+          📥 Export All My Data (JSON)
+        </button>
+        <button type="button" class="btn danger" id="btn-delete-data">
+          🗑️ Delete My Account and All Data
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Consent Modal for Speech to Text Tab Capture -->
+  <div id="citation-viewer-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="citation-viewer-title">
+    <div class="modal-content" style="max-width:520px;max-height:85vh;display:flex;flex-direction:column;">
+      <h3 id="citation-viewer-title" style="margin:0 0 8px;font-size:14px;">Source passage</h3>
+      <div id="citation-viewer-content" class="citation-passage" style="overflow:auto;white-space:pre-wrap;line-height:1.6;padding:10px;background:#0E0F12;border:1px solid var(--border);border-radius:6px;"></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:10px;"><button type="button" class="btn" id="citation-viewer-close">Close</button></div>
+    </div>
+  </div>
+
+  <!-- Consent Modal for Speech to Text Tab Capture -->
+  <div id="stt-consent-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="consent-title">
+    <div class="modal-content">
+      <h3 id="consent-title" style="margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--text);">Generate Video Transcript</h3>
+      <p style="margin: 0 0 12px; font-size: 12px; color: var(--muted); line-height: 1.5;">
+        Audio from this video tab will be captured and processed for timestamped transcript generation. Usage limits apply (max 3 minutes per segment). Audio is processed solely for learning assistance and is never stored permanently.
+      </p>
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button type="button" class="btn ghost" id="btn-cancel-consent">Cancel</button>
+        <button type="button" class="btn primary" id="btn-confirm-consent">Agree & Transcribe</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="vendor/jszip.min.js"></script>
+  <script src="sidepanel.js"></script>
+  <script src="config.js"></script>
+  <script src="localapi.js"></script>
+</body>
+</html>
