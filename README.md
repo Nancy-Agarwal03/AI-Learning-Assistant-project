@@ -2,7 +2,7 @@
 
 This contains everything you need to run your app locally.
 
-View your app in AI Studio: https://ai.studio/apps/126a1c82-64c7-42d2-a65d-f631c43d1f9c
+View your app in AI Studio: https://ai-learning-avatar-interviewer-studio.ai.studio
 
 ## Run Locally
 
